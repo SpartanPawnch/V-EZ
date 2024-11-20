@@ -21,90 +21,78 @@
 //
 #pragma once
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 #include <list>
 #include <vector>
 
-namespace vez
-{
-    class MemoryStream
-    {
-    public:
-        typedef enum SeekDir
-        {
-            BEG,
-            END,
-            CUR
-        } SeekDir;
+namespace vez {
+class MemoryStream {
+  public:
+    typedef enum SeekDir { BEG, END, CUR } SeekDir;
 
-        MemoryStream(uint64_t blockSize);
+    MemoryStream(uint64_t blockSize);
 
-        template <typename T>
-        MemoryStream& operator >> (T& value)
-        {
-            Read(reinterpret_cast<void*>(&value), sizeof(value));
-            return *this;
-        }
+    template <typename T> MemoryStream &operator>>(T &value) {
+        Read(reinterpret_cast<void *>(&value), sizeof(value));
+        return *this;
+    }
 
-        template <typename T>
-        MemoryStream& operator << (const T& value)
-        {
-            Write(reinterpret_cast<const void*>(&value), sizeof(value));
-            return *this;
-        }
+    template <typename T> MemoryStream &operator<<(const T &value) {
+        Write(reinterpret_cast<const void *>(&value), sizeof(value));
+        return *this;
+    }
 
-        template <typename T>
-        T* ReadPtr(uint64_t count = 1)
-        {
-            if (m_blocks.size() == 0)
+    template <typename T> T *ReadPtr(uint64_t count = 1) {
+        if (m_blocks.size() == 0)
+            return nullptr;
+
+        if (m_readBlock->readAddr + sizeof(T) * count >
+            m_readBlock->writeAddr) {
+            if (++m_readBlock == m_blocks.end())
                 return nullptr;
-
-            if (m_readBlock->readAddr + sizeof(T) * count > m_readBlock->writeAddr)
-            {
-                if (++m_readBlock == m_blocks.end())
-                    return nullptr;
-                else
-                    m_readBlock->readAddr = 0;
-            }
-
-            auto ptr = reinterpret_cast<T*>(&m_readBlock->allocation[m_readBlock->readAddr]);
-            m_readBlock->readAddr += sizeof(T) * count;
-            return ptr;
+            else
+                m_readBlock->readAddr = 0;
         }
 
-        void Read(void* pData, uint64_t size);
+        auto ptr = reinterpret_cast<T *>(
+            &m_readBlock->allocation[m_readBlock->readAddr]);
+        m_readBlock->readAddr += sizeof(T) * count;
+        return ptr;
+    }
 
-        void Write(const void* pData, uint64_t size);
+    void Read(void *pData, uint64_t size);
 
-        bool EndOfStream();
+    void Write(const void *pData, uint64_t size);
 
-        void Reset();
+    bool EndOfStream();
 
-        void SeekG(uint64_t pos);
+    void Reset();
 
-        void SeekG(int64_t offset, SeekDir dir);
+    void SeekG(uint64_t pos);
 
-        uint64_t TellG();
+    void SeekG(int64_t offset, SeekDir dir);
 
-        uint64_t TellP();
+    uint64_t TellG();
 
-        void SeekP(uint64_t pos);
+    uint64_t TellP();
 
-        void SeekP(int64_t offset, SeekDir dir);
+    void SeekP(uint64_t pos);
 
-    private:
-        struct MemoryBlock
-        {
-            std::vector<uint8_t> allocation;
-            uint64_t readAddr;
-            uint64_t writeAddr;
-        };
+    void SeekP(int64_t offset, SeekDir dir);
 
-        void AllocateNewBlock(uint64_t size);
-
-        uint64_t m_blockSize;
-        std::list<MemoryBlock> m_blocks;
-        std::list<MemoryBlock>::iterator m_readBlock;
-        std::list<MemoryBlock>::iterator m_writeBlock;
+  private:
+    struct MemoryBlock {
+        std::vector<uint8_t> allocation;
+        uint64_t readAddr;
+        uint64_t writeAddr;
     };
-}
+
+    void AllocateNewBlock(uint64_t size);
+
+    uint64_t m_blockSize;
+    std::list<MemoryBlock> m_blocks;
+    std::list<MemoryBlock>::iterator m_readBlock;
+    std::list<MemoryBlock>::iterator m_writeBlock;
+};
+} // namespace vez
